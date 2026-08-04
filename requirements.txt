@@ -1,5 +1,0 @@
-numpy
-tritonclient[http]
-onnx
-onnxruntime
-torch
