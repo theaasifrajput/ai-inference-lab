@@ -48,16 +48,28 @@ def nms(boxes: np.ndarray, scores: np.ndarray, threshold: float) -> list[int]:
 
 
 class YoloOnnxDetector:
-    def __init__(self, model_path: str, size: int, confidence: float, nms_threshold: float):
+    def __init__(
+        self,
+        model_path: str,
+        size: int,
+        confidence: float,
+        nms_threshold: float,
+        providers: list[str] | None = None,
+    ):
         self.model_path, self.size = Path(model_path), size
-        self.confidence, self.nms_threshold, self.session = confidence, nms_threshold, None
+        self.confidence, self.nms_threshold = confidence, nms_threshold
+        self.providers = providers or ["CPUExecutionProvider"]
+        self.session = None
 
     def detect(self, image: Image.Image) -> tuple[list[Detection], float]:
         if self.session is None:
             if not self.model_path.is_file():
                 raise FileNotFoundError(f"Model missing: {self.model_path}. See scripts/export_onnx.py.")
             import onnxruntime as ort
-            self.session = ort.InferenceSession(str(self.model_path), providers=["CPUExecutionProvider"])
+            self.session = ort.InferenceSession(
+                str(self.model_path),
+                providers=self.providers,
+            )
         width, height = image.size
         tensor, scale, (pad_x, pad_y) = letterbox(image, self.size)
         started = time.perf_counter()
