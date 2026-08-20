@@ -118,3 +118,30 @@ C++ + TensorRT FP16
 The same model, input data, and measurement methodology should be used for each implementation.
 
 This allows performance improvements to be attributed to specific runtime or system-level changes.
+
+
+## Current Baseline
+
+The initial Python inference baseline was measured using:
+
+- Model: YOLOv8n
+- Input: 640 × 640
+- Precision: FP32
+- Runtime: ONNX Runtime
+- Execution Provider: CPUExecutionProvider
+- Warmup iterations: 10
+- Benchmark iterations: 100
+
+Results:
+
+| Stage           | Mean (ms) | P50 (ms) | P95 (ms) | P99 (ms) |
+|-----------------|-----------|----------|----------|----------|
+| Preprocessing   | 19.313    | 18.022   | 28.928   | 30.389   |
+| ONNX Runtime    | 56.998    | 51.412   | 80.254   | 104.599  |
+| Post-processing | 0.272     | 0.235    | 0.408    | 0.774    |
+| End-to-end      | 76.598    | 70.908   | 112.862  | 134.737  |
+
+Throughput:
+
+```text
+13.06 images/sec
