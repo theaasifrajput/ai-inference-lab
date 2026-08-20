@@ -3,9 +3,6 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 data/
-models/*.onnx
-models/*.engine
-models/*.pt
 build/
 .venv/
 .vscode/

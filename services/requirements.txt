@@ -6,3 +6,4 @@ numpy
 Pillow
 prometheus-client
 ultralytics
+opencv-python

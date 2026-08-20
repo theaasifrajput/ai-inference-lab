@@ -18,12 +18,16 @@ class InferencePipeline:
         input_size: int = 640,
         confidence_threshold: float = 0.35,
         nms_threshold: float = 0.45,
+        providers: list[str] | None = None,
     ) -> None:
         self.input_size = input_size
         self.confidence_threshold = confidence_threshold
         self.nms_threshold = nms_threshold
 
-        self.detector = YoloOnnxDetector(model_path)
+        self.detector = YoloOnnxDetector(
+            model_path,
+            providers=providers,
+        )
 
     def infer(
         self,
