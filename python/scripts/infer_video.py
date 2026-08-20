@@ -84,6 +84,7 @@ def main():
         input_size=640,
         confidence_threshold=0.35,
         nms_threshold=0.45,
+        providers=["CPUExecutionProvider", "CUDAExecutionProvider"]
     )
 
     print(f"Input:       {video_path}")
