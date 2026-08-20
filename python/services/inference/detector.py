@@ -30,6 +30,9 @@ class YoloOnnxDetector:
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
 
+    def get_providers(self) -> list[str]:
+        return self.session.get_providers()
+
     def infer(
         self,
         tensor: np.ndarray,
