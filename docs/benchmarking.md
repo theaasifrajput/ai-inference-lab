@@ -145,3 +145,53 @@ Throughput:
 
 ```text
 13.06 images/sec
+
+## CPU vs GPU Video Inference
+
+The same YOLOv8n model was benchmarked on a 100-frame sample video.
+
+Configuration:
+
+- Model: YOLOv8n
+- Input resolution: 640 × 640
+- Precision: FP32
+- Video: 2160 × 3840, 29.97 FPS
+- Benchmark: 100 frames
+- GPU: NVIDIA L4
+- Runtime: ONNX Runtime
+- GPU provider: CUDAExecutionProvider
+
+### Results
+
+| Stage | CPU (ms) | NVIDIA L4 (ms) |
+|---|---:|---:|
+| Frame Decode | 17.008 | 7.398 |
+| BGR → RGB + PIL | 17.674 | 11.445 |
+| Preprocessing | 42.363 | 36.341 |
+| ONNX Runtime | 43.085 | 4.649 |
+| Post-processing | 0.499 | 0.474 |
+| Complete Frame | 120.971 | 60.325 |
+
+### Throughput
+
+| Platform | FPS |
+|---|---:|
+| CPU | 8.27 |
+| NVIDIA L4 | 16.58 |
+
+### Observations
+
+GPU acceleration significantly reduces model execution latency:
+
+- CPU ONNX Runtime: 43.085 ms
+- NVIDIA L4: 4.649 ms
+
+This represents approximately a 9.3× reduction in model execution latency.
+
+However, end-to-end latency improves by approximately 2× because preprocessing remains CPU-bound.
+
+The current GPU pipeline spends substantially more time preparing the input than executing the model:
+
+```text
+Preprocessing + conversion ≈ 47.8 ms
+GPU inference             ≈ 4.65 ms
