@@ -1,7 +1,30 @@
-.env
-__pycache__/
-.pytest_cache/
-*.py[cod]
-build/
+# Python
 .venv/
+__pycache__/
+*.pyc
+
+# CMake
+**/build/
+CMakeUserPresets.json
+
+# vcpkg
+vcpkg_installed/
+third_party/vcpkg/buildtrees/
+third_party/vcpkg/packages/
+third_party/vcpkg/downloads/
+third_party/vcpkg/.cache/
+
+# Compiled artifacts
+*.o
+*.so
+*.a
+*.exe
+
+# Models
+*.pt
+*.onnx
+*.bin
+
+# IDE
 .vscode/
+.idea/
