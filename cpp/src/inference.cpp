@@ -171,26 +171,6 @@ std::vector<float> InferenceSession::run(
         output_name.get()
     };
 
-    std::cout
-        << "Input tensor:\n";
-
-    std::cout
-        << "  Elements: "
-        << input.size()
-        << '\n';
-
-    std::cout
-        << "  Shape: ";
-
-    for (auto dim : input_shape)
-    {
-        std::cout
-            << dim
-            << ' ';
-    }
-
-    std::cout << '\n';
-
     auto outputs =
         session_.Run(
             Ort::RunOptions{nullptr},
@@ -201,27 +181,12 @@ std::vector<float> InferenceSession::run(
             1
         );
 
-    std::cout
-        << "Inference completed\n";
-
     auto output_info =
         outputs[0]
             .GetTensorTypeAndShapeInfo();
 
     output_shape =
         output_info.GetShape();
-
-    std::cout
-        << "Output shape: ";
-
-    for (auto dim : output_shape)
-    {
-        std::cout
-            << dim
-            << ' ';
-    }
-
-    std::cout << '\n';
 
     const float* output_data =
         outputs[0].GetTensorData<float>();

@@ -386,3 +386,11 @@ git submodule update --init --recursive
 Then configure again:
 
 cmake --preset linux-release
+
+Build and Run
+cmake --preset linux-release
+cmake --build --preset linux-release
+
+./cpp/build/linux-release/ai_inference \
+    tests/data/test.mp4 \
+    output/cpp_detected.mp4

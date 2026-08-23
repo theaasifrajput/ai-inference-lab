@@ -1,107 +1,90 @@
 #include "inference.hpp"
-#include "postprocessing.hpp"
-#include "preprocessing.hpp"
-#include "utils.hpp"
+#include "video_inference.hpp"
 
 #include <iostream>
-#include <vector>
+#include <stdexcept>
+#include <string>
+
+namespace
+{
+
+struct AppConfig
+{
+    std::string input_path;
+    std::string output_path;
+    bool benchmark = false;
+};
+
+AppConfig parse_arguments(
+    int argc,
+    char* argv[])
+{
+    AppConfig config;
+
+    if (argc == 3)
+    {
+        // Normal inference
+        config.input_path = argv[1];
+        config.output_path = argv[2];
+    }
+    else if (
+        argc == 4 &&
+        std::string(argv[1]) == "--benchmark")
+    {
+        // Benchmark mode
+        config.benchmark = true;
+        config.input_path = argv[2];
+        config.output_path = argv[3];
+    }
+    else
+    {
+        throw std::runtime_error(
+            "Usage:\n"
+            "  ai_inference <input> <output>\n"
+            "  ai_inference --benchmark <input> <output>"
+        );
+    }
+
+    return config;
+}
+
+} // namespace
+
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2)
-    {
-        std::cerr
-            << "Usage: ai_inference <image_path>\n";
-
-        return 1;
-    }
-
     try
     {
-        // Load image
-        cv::Mat image =
-            load_image(argv[1]);
+        // --------------------------------
+        // Parse command-line arguments
+        // --------------------------------
 
-        const int original_width =
-            image.cols;
-
-        const int original_height =
-            image.rows;
-
-        // Preprocessing
-        LetterboxInfo letterbox;
-
-        cv::Mat processed =
-            preprocess_image(
-                image,
-                letterbox
+        const AppConfig config =
+            parse_arguments(
+                argc,
+                argv
             );
 
-        std::vector<float> input_tensor =
-            image_to_tensor(
-                processed
-            );
+        // --------------------------------
+        // Create inference session
+        // --------------------------------
 
-        const std::vector<int64_t> input_shape = {
-            1,
-            3,
-            640,
-            640
-        };
-
-        // Inference
         InferenceSession session(
             "models/yolov8n.onnx"
         );
 
-        std::vector<int64_t> output_shape;
+        // --------------------------------
+        // Run video inference
+        // --------------------------------
 
-        std::vector<float> output =
-            session.run(
-                input_tensor,
-                input_shape,
-                output_shape
-            );
-
-        // Postprocessing
-        std::vector<Detection> detections =
-            postprocess(
-                output.data(),
-                output_shape,
-                0.25f,
-                0.45f
-            );
-
-        // Map model coordinates
-        // back to original image
-        detections =
-            map_detections_to_original(
-                detections,
-                letterbox,
-                original_width,
-                original_height
-            );
-
-        // Draw
-        draw_detections(
-            image,
-            detections
+        run_video_inference(
+            config.input_path,
+            config.output_path,
+            session,
+            config.benchmark
         );
 
-        // Save
-        save_image(
-            image,
-            "output/detected.jpg"
-        );
-
-        std::cout
-            << "Detections: "
-            << detections.size()
-            << '\n';
-
-        std::cout
-            << "Output: "
-            << "output/detected.jpg\n";
+        return 0;
     }
     catch (const std::exception& e)
     {
@@ -112,6 +95,4 @@ int main(int argc, char* argv[])
 
         return 1;
     }
-
-    return 0;
 }

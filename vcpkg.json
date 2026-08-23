@@ -2,7 +2,12 @@
     "name": "ai-inference-lab",
     "version-string": "0.1.0",
     "dependencies": [
-        "opencv4",
+        {
+            "name": "opencv4",
+            "features": [
+                "ffmpeg"
+            ]
+        },
         "onnxruntime"
     ]
 }
