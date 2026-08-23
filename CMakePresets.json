@@ -7,7 +7,7 @@
       "description": "Linux Release build using GCC, Ninja and vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/cpp/build/linux-release",
-      "toolchainFile": "${sourceDir}/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_STANDARD": "20",
@@ -22,7 +22,7 @@
       "description": "Linux Debug build using GCC, Ninja and vcpkg",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/cpp/build/linux-debug",
-      "toolchainFile": "${sourceDir}/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_STANDARD": "20",
