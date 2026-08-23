@@ -87,3 +87,19 @@ A more detailed representation is:
                          │
                          ▼
                     Detections
+
+
+// Build
+cmake --build --preset linux-release
+
+Normal inference:
+./cpp/build/linux-release/cpp/ai_inference \
+    input/walking_person.mp4 \
+    output/cpp_detected.mp4
+
+Benchmark:
+./cpp/build/linux-release/cpp/ai_inference \
+    --benchmark \
+    input/walking_person.mp4 \
+    output/cpp_detected.mp4
+

@@ -15,10 +15,11 @@ find_package(onnxruntime CONFIG REQUIRED)
 add_executable(ai_inference
     src/main.cpp
     src/preprocessing.cpp
+    src/video_inference.cpp
     src/inference.cpp
     src/postprocessing.cpp
-    src/postprocessing.cpp
     src/utils.cpp
+    src/benchmark.cpp
 )
 
 target_include_directories(ai_inference

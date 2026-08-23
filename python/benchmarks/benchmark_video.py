@@ -16,7 +16,7 @@ MODEL_PATH = ROOT.parent / "models" / "yolov8n.onnx"
 VIDEO_PATH = ROOT / "tests" / "data" / "walking_person.mp4"
 
 WARMUP_FRAMES = 10
-BENCHMARK_FRAMES = 100
+BENCHMARK_FRAMES = 279
 
 
 def percentile(values: list[float], p: float) -> float:
@@ -68,7 +68,6 @@ def main() -> None:
         confidence_threshold=0.35,
         nms_threshold=0.45,
         providers=[
-            "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ],
     )
