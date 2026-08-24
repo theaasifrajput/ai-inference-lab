@@ -1,5 +1,4 @@
 #include "benchmark.hpp"
-
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -10,64 +9,38 @@
 namespace
 {
 
-double percentile(
-    std::vector<double> values,
-    double percentile_value)
+double percentile(std::vector<double> values, double percentile_value)
 {
     if (values.empty())
     {
         return 0.0;
     }
 
-    std::sort(
-        values.begin(),
-        values.end()
-    );
+    std::sort(values.begin(), values.end());
 
-    const double index =
-        (percentile_value / 100.0) *
-        static_cast<double>(values.size() - 1);
+    const double index = (percentile_value / 100.0) * static_cast<double>(values.size() - 1);
+    const std::size_t lower = static_cast<std::size_t>(index);
+    const std::size_t upper = std::min(lower + 1, values.size() - 1);
+    const double fraction = index - static_cast<double>(lower);
 
-    const std::size_t lower =
-        static_cast<std::size_t>(index);
-
-    const std::size_t upper =
-        std::min(
-            lower + 1,
-            values.size() - 1
-        );
-
-    const double fraction =
-        index - static_cast<double>(lower);
-
-    return values[lower] +
-           fraction *
-           (values[upper] - values[lower]);
+    return values[lower] + fraction * (values[upper] - values[lower]);
 }
 
-double mean(
-    const std::vector<double>& values)
+double mean(const std::vector<double>& values)
 {
     if (values.empty())
     {
         return 0.0;
     }
 
-    const double total =
-        std::accumulate(
-            values.begin(),
-            values.end(),
-            0.0
-        );
+    const double total = std::accumulate(values.begin(), values.end(), 0.0);
 
-    return total /
-           static_cast<double>(values.size());
+    return total / static_cast<double>(values.size());
 }
 
 } // namespace
 
-std::string Benchmark::stage_name(
-    BenchmarkStage stage)
+std::string Benchmark::stage_name(BenchmarkStage stage)
 {
     switch (stage)
     {
@@ -90,73 +63,44 @@ std::string Benchmark::stage_name(
     return "Unknown";
 }
 
-void Benchmark::start(
-    BenchmarkStage stage)
+void Benchmark::start(BenchmarkStage stage)
 {
-    auto& timer =
-        active_timers_[stage];
-
-    timer.start_time =
-        Clock::now();
-
+    auto& timer = active_timers_[stage];
+    timer.start_time = Clock::now();
     timer.running = true;
 }
 
-void Benchmark::stop(
-    BenchmarkStage stage)
+void Benchmark::stop(BenchmarkStage stage)
 {
-    auto& timer =
-        active_timers_[stage];
+    auto& timer = active_timers_[stage];
 
     if (!timer.running)
     {
         return;
     }
 
-    const auto end =
-        Clock::now();
-
-    const double milliseconds =
-        std::chrono::duration<double, std::milli>(
-            end - timer.start_time
-        ).count();
-
-    stats_[stage]
-        .samples
-        .push_back(milliseconds);
-
-    stats_[stage]
-        .total_ms += milliseconds;
-
+    const auto end = Clock::now();
+    const double milliseconds = std::chrono::duration<double, std::milli>(end - timer.start_time).count();
+    stats_[stage].samples.push_back(milliseconds);
+    stats_[stage].total_ms += milliseconds;
     timer.running = false;
 }
 
-void Benchmark::record_inference(
-    double milliseconds)
+void Benchmark::record_inference(double milliseconds)
 {
-    stats_[BenchmarkStage::Inference]
-        .samples
-        .push_back(milliseconds);
-
-    stats_[BenchmarkStage::Inference]
-        .total_ms += milliseconds;
+    stats_[BenchmarkStage::Inference].samples.push_back(milliseconds);
+    stats_[BenchmarkStage::Inference].total_ms += milliseconds;
 }
 
-void Benchmark::set_total_frames(
-    std::size_t frames)
+void Benchmark::set_total_frames(std::size_t frames)
 {
     total_frames_ = frames;
 }
 
 void Benchmark::print_report() const
 {
-    std::cout
-        << "\n========== Benchmark ==========\n";
-
-    std::cout
-        << "Frames: "
-        << total_frames_
-        << "\n\n";
+    std::cout<< "\n========== Benchmark ==========\n";
+    std::cout<< "Frames: "<< total_frames_<< "\n\n";
 
     const BenchmarkStage stages[] =
     {
@@ -167,77 +111,36 @@ void Benchmark::print_report() const
         BenchmarkStage::Encode
     };
 
-    std::cout
-        << std::fixed
-        << std::setprecision(3);
+    std::cout<< std::fixed<< std::setprecision(3);
 
     for (const auto stage : stages)
     {
-        const auto it =
-            stats_.find(stage);
+        const auto it = stats_.find(stage);
 
-        if (it == stats_.end() ||
-            it->second.samples.empty())
+        if (it == stats_.end() || it->second.samples.empty())
         {
             continue;
         }
 
-        const auto& samples =
-            it->second.samples;
+        const auto& samples = it->second.samples;
 
-        std::cout
-            << stage_name(stage)
-            << ":\n";
-
-        std::cout
-            << "  Mean: "
-            << mean(samples)
-            << " ms\n";
-
-        std::cout
-            << "  P50:  "
-            << percentile(samples, 50.0)
-            << " ms\n";
-
-        std::cout
-            << "  P95:  "
-            << percentile(samples, 95.0)
-            << " ms\n";
-
-        std::cout
-            << "  P99:  "
-            << percentile(samples, 99.0)
-            << " ms\n";
-
-        std::cout
-            << "  Min:  "
-            << *std::min_element(
-                samples.begin(),
-                samples.end()
-            )
-            << " ms\n";
-
-        std::cout
-            << "  Max:  "
-            << *std::max_element(
-                samples.begin(),
-                samples.end()
-            )
-            << " ms\n\n";
+        std::cout<< stage_name(stage)<< ":\n";
+        std::cout<< "  Mean: "<< mean(samples)<< " ms\n";
+        std::cout<< "  P50:  "<< percentile(samples, 50.0)<< " ms\n";
+        std::cout<< "  P95:  "<< percentile(samples, 95.0)<< " ms\n";
+        std::cout<< "  P99:  "<< percentile(samples, 99.0)<< " ms\n";
+        std::cout<< "  Min:  "<< *std::min_element(samples.begin(), samples.end())<< " ms\n";
+        std::cout<< "  Max:  "<< *std::max_element(samples.begin(),samples.end())<< " ms\n\n";
     }
 }
 
-void Benchmark::save_csv(
-    const std::string& path) const
+void Benchmark::save_csv(const std::string& path) const
 {
     std::ofstream file(path);
 
     if (!file)
     {
-        throw std::runtime_error(
-            "Failed to open benchmark output: " +
-            path
-        );
+        throw std::runtime_error("Failed to open benchmark output: " + path);
     }
 
     file
@@ -254,17 +157,14 @@ void Benchmark::save_csv(
 
     for (const auto stage : stages)
     {
-        const auto it =
-            stats_.find(stage);
+        const auto it = stats_.find(stage);
 
-        if (it == stats_.end() ||
-            it->second.samples.empty())
+        if (it == stats_.end() || it->second.samples.empty())
         {
             continue;
         }
 
-        const auto& samples =
-            it->second.samples;
+        const auto& samples = it->second.samples;
 
         file
             << stage_name(stage)
@@ -277,15 +177,9 @@ void Benchmark::save_csv(
             << ","
             << percentile(samples, 99.0)
             << ","
-            << *std::min_element(
-                samples.begin(),
-                samples.end()
-            )
+            << *std::min_element(samples.begin(), samples.end())
             << ","
-            << *std::max_element(
-                samples.begin(),
-                samples.end()
-            )
+            << *std::max_element(samples.begin(),samples.end())
             << ","
             << samples.size()
             << "\n";
