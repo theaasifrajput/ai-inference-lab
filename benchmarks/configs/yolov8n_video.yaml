@@ -1,0 +1,17 @@
+benchmark:
+  name: yolov8n_video
+  version: 1
+
+model:
+  name: yolov8n
+  path: models/yolov8n.onnx
+
+workload:
+  type: video
+  input: input/walking_person.mp4
+
+  input_size:
+    width: 640
+    height: 640
+
+  precision: fp32

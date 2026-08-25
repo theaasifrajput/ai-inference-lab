@@ -1,0 +1,157 @@
+name: GPU Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      video:
+        description: "Benchmark video path"
+        required: true
+        default: "input/walking_person.mp4"
+
+jobs:
+  gpu-benchmark:
+    name: GPU Benchmark
+    runs-on: [self-hosted, linux, x64, gpu]
+
+    steps:
+
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # --------------------------------------------------
+      # GPU environment
+      # --------------------------------------------------
+
+      - name: Check GPU
+        run: |
+          nvidia-smi
+
+      - name: Check CUDA
+        run: |
+          nvcc --version
+
+
+      # --------------------------------------------------
+      # Python environment
+      # --------------------------------------------------
+
+      - name: Check Python
+        run: |
+          python3 --version
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r python/requirements.txt
+
+
+      # --------------------------------------------------
+      # Build C++
+      # --------------------------------------------------
+
+      - name: Configure C++
+        run: |
+          cmake -S cpp -B build
+
+      - name: Build C++
+        run: |
+          cmake --build build -j$(nproc)
+
+
+      # --------------------------------------------------
+      # Prepare results directory
+      # --------------------------------------------------
+
+      - name: Prepare benchmark results
+        run: |
+          mkdir -p benchmarks/results
+
+
+      # ==================================================
+      # Python CPU
+      # ==================================================
+
+      - name: Python ORT CPU benchmark
+        run: |
+          python3 -m benchmarks.benchmark_video \
+            --config benchmarks/configs/yolov8n_video.yaml \
+            --provider CPUExecutionProvider \
+            --output benchmarks/results/python-ort-cpu.json
+
+
+      # ==================================================
+      # Python CUDA
+      # ==================================================
+
+      - name: Python ORT CUDA benchmark
+        run: |
+          python3 -m benchmarks.benchmark_video \
+            --config benchmarks/configs/yolov8n_video.yaml \
+            --provider CUDAExecutionProvider \
+            --output benchmarks/results/python-ort-cuda.json
+
+
+      # ==================================================
+      # C++ CPU
+      # ==================================================
+
+      - name: C++ ORT CPU benchmark
+        run: |
+          ./build/ai_inference \
+            --benchmark \
+            "${{ inputs.video }}" \
+            /tmp/benchmark-cpp-cpu.mp4 \
+            --provider cpu
+
+
+      # ==================================================
+      # C++ CUDA
+      # ==================================================
+
+      - name: C++ ORT CUDA benchmark
+        run: |
+          ./build/ai_inference \
+            --benchmark \
+            "${{ inputs.video }}" \
+            /tmp/benchmark-cpp-cuda.mp4 \
+            --provider cuda
+
+
+      # --------------------------------------------------
+      # List results
+      # --------------------------------------------------
+
+      - name: Show benchmark results
+        run: |
+          echo "========== Benchmark Results =========="
+
+          find benchmarks/results \
+            -maxdepth 1 \
+            -type f \
+            -print
+
+          echo ""
+          echo "========== Python CPU =========="
+          cat benchmarks/results/python-ort-cpu.json
+
+          echo ""
+          echo "========== Python CUDA =========="
+          cat benchmarks/results/python-ort-cuda.json
+
+
+      # --------------------------------------------------
+      # Upload artifacts
+      # --------------------------------------------------
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-benchmark-${{ github.run_number }}
+          path: |
+            benchmarks/results/*.json
+            benchmark.csv

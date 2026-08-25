@@ -7,3 +7,4 @@ Pillow
 prometheus-client
 ultralytics
 opencv-python
+PyYAML

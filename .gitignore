@@ -3,6 +3,9 @@
 __pycache__/
 *.pyc
 
+benchmarks/results/*
+!benchmarks/results/.gitkeep
+
 # CMake
 **/build/
 CMakeUserPresets.json
