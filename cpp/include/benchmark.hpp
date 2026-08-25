@@ -1,61 +1,99 @@
 #pragma once
 
-#include <chrono>
 #include <cstddef>
 #include <string>
-#include <unordered_map>
 #include <vector>
+#include <chrono>
 
 enum class BenchmarkStage
 {
     Decode,
     Preprocess,
     Inference,
-    Postprocess,
-    Encode
+    Postprocess
 };
+
+
+struct BenchmarkStats
+{
+    double mean = 0.0;
+    double p50 = 0.0;
+    double p95 = 0.0;
+    double p99 = 0.0;
+    double min = 0.0;
+    double max = 0.0;
+};
+
 
 class Benchmark
 {
 public:
-    void start(BenchmarkStage stage);
 
-    void stop(BenchmarkStage stage);
+    Benchmark() = default;
 
-    void record_inference(double milliseconds);
+    void start(
+        BenchmarkStage stage
+    );
 
-    void set_total_frames(std::size_t frames);
+    void stop(
+        BenchmarkStage stage
+    );
+
+    void set_total_frames(
+        std::size_t frames
+    );
 
     void print_report() const;
 
-    void save_csv(const std::string& path) const;
+    void save_csv(
+        const std::string& path
+    ) const;
+
+    std::size_t total_frames() const;
+
+    BenchmarkStats stats(
+        BenchmarkStage stage
+    ) const;
+
+    BenchmarkStats end_to_end_stats() const;
+
+    double throughput_fps() const;
 
 private:
-    using Clock = std::chrono::steady_clock;
 
-    struct StageStats
+    struct StageData
     {
-        double total_ms = 0.0;
         std::vector<double> samples;
-    };
 
-    struct ActiveTimer
-    {
-        Clock::time_point start_time;
+        std::chrono::steady_clock::time_point start_time;
+
         bool running = false;
     };
 
-    static std::string stage_name(BenchmarkStage stage);
+    StageData decode_;
 
-    std::unordered_map<
-        BenchmarkStage,
-        StageStats
-    > stats_;
+    StageData preprocess_;
 
-    std::unordered_map<
-        BenchmarkStage,
-        ActiveTimer
-    > active_timers_;
+    StageData inference_;
+
+    StageData postprocess_;
 
     std::size_t total_frames_ = 0;
+
+    static BenchmarkStats calculate_stats(
+        const std::vector<double>& values
+    );
+
+    static double percentile(
+        std::vector<double> values,
+        double percentile
+    );
+
+    StageData& stage_data(
+        BenchmarkStage stage
+    );
+
+    const StageData& stage_data(
+        BenchmarkStage stage
+    ) const;
 };

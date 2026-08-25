@@ -1,187 +1,525 @@
 #include "benchmark.hpp"
+
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <stdexcept>
 
+
 namespace
 {
 
-double percentile(std::vector<double> values, double percentile_value)
+double elapsed_ms(
+    const std::chrono::steady_clock::time_point& start,
+    const std::chrono::steady_clock::time_point& end
+)
 {
-    if (values.empty())
-    {
-        return 0.0;
-    }
-
-    std::sort(values.begin(), values.end());
-
-    const double index = (percentile_value / 100.0) * static_cast<double>(values.size() - 1);
-    const std::size_t lower = static_cast<std::size_t>(index);
-    const std::size_t upper = std::min(lower + 1, values.size() - 1);
-    const double fraction = index - static_cast<double>(lower);
-
-    return values[lower] + fraction * (values[upper] - values[lower]);
-}
-
-double mean(const std::vector<double>& values)
-{
-    if (values.empty())
-    {
-        return 0.0;
-    }
-
-    const double total = std::accumulate(values.begin(), values.end(), 0.0);
-
-    return total / static_cast<double>(values.size());
+    return std::chrono::duration<double, std::milli>(
+        end - start
+    ).count();
 }
 
 } // namespace
 
-std::string Benchmark::stage_name(BenchmarkStage stage)
+
+// ============================================================
+// Stage access
+// ============================================================
+
+Benchmark::StageData&
+Benchmark::stage_data(
+    BenchmarkStage stage
+)
 {
     switch (stage)
     {
         case BenchmarkStage::Decode:
-            return "Decode";
+            return decode_;
 
         case BenchmarkStage::Preprocess:
-            return "Preprocess";
+            return preprocess_;
 
         case BenchmarkStage::Inference:
-            return "Inference";
+            return inference_;
 
         case BenchmarkStage::Postprocess:
-            return "Postprocess";
-
-        case BenchmarkStage::Encode:
-            return "Encode";
+            return postprocess_;
     }
 
-    return "Unknown";
+    throw std::runtime_error(
+        "Invalid benchmark stage"
+    );
 }
 
-void Benchmark::start(BenchmarkStage stage)
-{
-    auto& timer = active_timers_[stage];
-    timer.start_time = Clock::now();
-    timer.running = true;
-}
 
-void Benchmark::stop(BenchmarkStage stage)
+const Benchmark::StageData&
+Benchmark::stage_data(
+    BenchmarkStage stage
+) const
 {
-    auto& timer = active_timers_[stage];
-
-    if (!timer.running)
+    switch (stage)
     {
-        return;
+        case BenchmarkStage::Decode:
+            return decode_;
+
+        case BenchmarkStage::Preprocess:
+            return preprocess_;
+
+        case BenchmarkStage::Inference:
+            return inference_;
+
+        case BenchmarkStage::Postprocess:
+            return postprocess_;
     }
 
-    const auto end = Clock::now();
-    const double milliseconds = std::chrono::duration<double, std::milli>(end - timer.start_time).count();
-    stats_[stage].samples.push_back(milliseconds);
-    stats_[stage].total_ms += milliseconds;
-    timer.running = false;
+    throw std::runtime_error(
+        "Invalid benchmark stage"
+    );
 }
 
-void Benchmark::record_inference(double milliseconds)
+
+// ============================================================
+// Timing
+// ============================================================
+
+void Benchmark::start(
+    BenchmarkStage stage
+)
 {
-    stats_[BenchmarkStage::Inference].samples.push_back(milliseconds);
-    stats_[BenchmarkStage::Inference].total_ms += milliseconds;
+    StageData& data =
+        stage_data(stage);
+
+    if (data.running)
+    {
+        throw std::runtime_error(
+            "Benchmark stage already running"
+        );
+    }
+
+    data.start_time =
+        std::chrono::steady_clock::now();
+
+    data.running = true;
 }
 
-void Benchmark::set_total_frames(std::size_t frames)
+
+void Benchmark::stop(
+    BenchmarkStage stage
+)
+{
+    StageData& data =
+        stage_data(stage);
+
+    if (!data.running)
+    {
+        throw std::runtime_error(
+            "Benchmark stage was not started"
+        );
+    }
+
+    const auto end =
+        std::chrono::steady_clock::now();
+
+    const double milliseconds =
+        elapsed_ms(
+            data.start_time,
+            end
+        );
+
+    data.samples.push_back(
+        milliseconds
+    );
+
+    data.running = false;
+}
+
+
+// ============================================================
+// Configuration
+// ============================================================
+
+void Benchmark::set_total_frames(
+    std::size_t frames
+)
 {
     total_frames_ = frames;
 }
 
-void Benchmark::print_report() const
+
+std::size_t Benchmark::total_frames() const
 {
-    std::cout<< "\n========== Benchmark ==========\n";
-    std::cout<< "Frames: "<< total_frames_<< "\n\n";
-
-    const BenchmarkStage stages[] =
-    {
-        BenchmarkStage::Decode,
-        BenchmarkStage::Preprocess,
-        BenchmarkStage::Inference,
-        BenchmarkStage::Postprocess,
-        BenchmarkStage::Encode
-    };
-
-    std::cout<< std::fixed<< std::setprecision(3);
-
-    for (const auto stage : stages)
-    {
-        const auto it = stats_.find(stage);
-
-        if (it == stats_.end() || it->second.samples.empty())
-        {
-            continue;
-        }
-
-        const auto& samples = it->second.samples;
-
-        std::cout<< stage_name(stage)<< ":\n";
-        std::cout<< "  Mean: "<< mean(samples)<< " ms\n";
-        std::cout<< "  P50:  "<< percentile(samples, 50.0)<< " ms\n";
-        std::cout<< "  P95:  "<< percentile(samples, 95.0)<< " ms\n";
-        std::cout<< "  P99:  "<< percentile(samples, 99.0)<< " ms\n";
-        std::cout<< "  Min:  "<< *std::min_element(samples.begin(), samples.end())<< " ms\n";
-        std::cout<< "  Max:  "<< *std::max_element(samples.begin(),samples.end())<< " ms\n\n";
-    }
+    return total_frames_;
 }
 
-void Benchmark::save_csv(const std::string& path) const
+
+// ============================================================
+// Statistics
+// ============================================================
+
+double Benchmark::percentile(
+    std::vector<double> values,
+    double p
+)
+{
+    if (values.empty())
+    {
+        return 0.0;
+    }
+
+    std::sort(
+        values.begin(),
+        values.end()
+    );
+
+    const double index =
+        (values.size() - 1) * p;
+
+    const std::size_t lower =
+        static_cast<std::size_t>(
+            index
+        );
+
+    const std::size_t upper =
+        std::min(
+            lower + 1,
+            values.size() - 1
+        );
+
+    const double weight =
+        index -
+        static_cast<double>(
+            lower
+        );
+
+    return values[lower]
+        + (
+            values[upper]
+            - values[lower]
+        ) * weight;
+}
+
+
+BenchmarkStats Benchmark::calculate_stats(
+    const std::vector<double>& values
+)
+{
+    BenchmarkStats result;
+
+    if (values.empty())
+    {
+        return result;
+    }
+
+    result.mean =
+        std::accumulate(
+            values.begin(),
+            values.end(),
+            0.0
+        ) / values.size();
+
+    result.p50 =
+        percentile(
+            values,
+            0.50
+        );
+
+    result.p95 =
+        percentile(
+            values,
+            0.95
+        );
+
+    result.p99 =
+        percentile(
+            values,
+            0.99
+        );
+
+    result.min =
+        *std::min_element(
+            values.begin(),
+            values.end()
+        );
+
+    result.max =
+        *std::max_element(
+            values.begin(),
+            values.end()
+        );
+
+    return result;
+}
+
+
+BenchmarkStats Benchmark::stats(
+    BenchmarkStage stage
+) const
+{
+    return calculate_stats(
+        stage_data(stage).samples
+    );
+}
+
+
+// ============================================================
+// End-to-end
+// ============================================================
+
+BenchmarkStats Benchmark::end_to_end_stats() const
+{
+    const std::size_t frame_count =
+        std::min(
+            {
+                decode_.samples.size(),
+                preprocess_.samples.size(),
+                inference_.samples.size(),
+                postprocess_.samples.size()
+            }
+        );
+
+    if (frame_count == 0)
+    {
+        return {};
+    }
+
+    std::vector<double> total_times;
+
+    total_times.reserve(
+        frame_count
+    );
+
+    for (
+        std::size_t i = 0;
+        i < frame_count;
+        ++i
+    )
+    {
+        total_times.push_back(
+            decode_.samples[i]
+            + preprocess_.samples[i]
+            + inference_.samples[i]
+            + postprocess_.samples[i]
+        );
+    }
+
+    return calculate_stats(
+        total_times
+    );
+}
+
+
+// ============================================================
+// Throughput
+// ============================================================
+
+double Benchmark::throughput_fps() const
+{
+    const BenchmarkStats end_to_end =
+        end_to_end_stats();
+
+    if (end_to_end.mean <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return 1000.0 /
+        end_to_end.mean;
+}
+
+
+// ============================================================
+// Console report
+// ============================================================
+
+void Benchmark::print_report() const
+{
+    std::cout
+        << "\n========== Benchmark ==========\n";
+
+    auto print_stage =
+        [this](
+            const std::string& name,
+            BenchmarkStage stage
+        )
+        {
+            const BenchmarkStats result =
+                stats(stage);
+
+            std::cout
+                << "\n"
+                << name
+                << "\n";
+
+            std::cout
+                << "  Mean: "
+                << std::fixed
+                << std::setprecision(3)
+                << result.mean
+                << " ms\n";
+
+            std::cout
+                << "  P50:  "
+                << result.p50
+                << " ms\n";
+
+            std::cout
+                << "  P95:  "
+                << result.p95
+                << " ms\n";
+
+            std::cout
+                << "  P99:  "
+                << result.p99
+                << " ms\n";
+
+            std::cout
+                << "  Min:  "
+                << result.min
+                << " ms\n";
+
+            std::cout
+                << "  Max:  "
+                << result.max
+                << " ms\n";
+        };
+
+    print_stage(
+        "Decode",
+        BenchmarkStage::Decode
+    );
+
+    print_stage(
+        "Preprocessing",
+        BenchmarkStage::Preprocess
+    );
+
+    print_stage(
+        "Inference",
+        BenchmarkStage::Inference
+    );
+
+    print_stage(
+        "Post-processing",
+        BenchmarkStage::Postprocess
+    );
+
+    const BenchmarkStats end_to_end =
+        end_to_end_stats();
+
+    std::cout
+        << "\nEnd-to-end\n";
+
+    std::cout
+        << "  Mean: "
+        << end_to_end.mean
+        << " ms\n";
+
+    std::cout
+        << "  P50:  "
+        << end_to_end.p50
+        << " ms\n";
+
+    std::cout
+        << "  P95:  "
+        << end_to_end.p95
+        << " ms\n";
+
+    std::cout
+        << "  P99:  "
+        << end_to_end.p99
+        << " ms\n";
+
+    std::cout
+        << "  Min:  "
+        << end_to_end.min
+        << " ms\n";
+
+    std::cout
+        << "  Max:  "
+        << end_to_end.max
+        << " ms\n";
+
+    std::cout
+        << "\nThroughput\n";
+
+    std::cout
+        << "  FPS:  "
+        << throughput_fps()
+        << '\n';
+
+    std::cout
+        << "\nFrames\n";
+
+    std::cout
+        << "  Total: "
+        << total_frames_
+        << '\n';
+}
+
+
+// ============================================================
+// CSV
+// ============================================================
+
+void Benchmark::save_csv(
+    const std::string& path
+) const
 {
     std::ofstream file(path);
 
-    if (!file)
+    if (!file.is_open())
     {
-        throw std::runtime_error("Failed to open benchmark output: " + path);
+        throw std::runtime_error(
+            "Failed to open benchmark CSV: "
+            + path
+        );
     }
 
     file
-        << "stage,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms,samples\n";
+        << "frame,"
+        << "decode_ms,"
+        << "preprocess_ms,"
+        << "inference_ms,"
+        << "postprocess_ms,"
+        << "end_to_end_ms\n";
 
-    const BenchmarkStage stages[] =
+    const std::size_t frame_count =
+        std::min(
+            {
+                decode_.samples.size(),
+                preprocess_.samples.size(),
+                inference_.samples.size(),
+                postprocess_.samples.size()
+            }
+        );
+
+    for (
+        std::size_t i = 0;
+        i < frame_count;
+        ++i
+    )
     {
-        BenchmarkStage::Decode,
-        BenchmarkStage::Preprocess,
-        BenchmarkStage::Inference,
-        BenchmarkStage::Postprocess,
-        BenchmarkStage::Encode
-    };
-
-    for (const auto stage : stages)
-    {
-        const auto it = stats_.find(stage);
-
-        if (it == stats_.end() || it->second.samples.empty())
-        {
-            continue;
-        }
-
-        const auto& samples = it->second.samples;
+        const double end_to_end =
+            decode_.samples[i]
+            + preprocess_.samples[i]
+            + inference_.samples[i]
+            + postprocess_.samples[i];
 
         file
-            << stage_name(stage)
-            << ","
-            << mean(samples)
-            << ","
-            << percentile(samples, 50.0)
-            << ","
-            << percentile(samples, 95.0)
-            << ","
-            << percentile(samples, 99.0)
-            << ","
-            << *std::min_element(samples.begin(), samples.end())
-            << ","
-            << *std::max_element(samples.begin(),samples.end())
-            << ","
-            << samples.size()
-            << "\n";
+            << i
+            << ','
+            << decode_.samples[i]
+            << ','
+            << preprocess_.samples[i]
+            << ','
+            << inference_.samples[i]
+            << ','
+            << postprocess_.samples[i]
+            << ','
+            << end_to_end
+            << '\n';
     }
 }

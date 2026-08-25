@@ -10,8 +10,9 @@ class InferenceSession
 {
 public:
 
-    explicit InferenceSession(
-        const std::string& model_path
+    InferenceSession(
+        const std::string& model_path,
+        const std::string& provider
     );
 
     void print_model_info();

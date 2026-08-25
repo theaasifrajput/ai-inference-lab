@@ -1,90 +1,254 @@
 #include "inference.hpp"
-#include <iostream>
 
-InferenceSession::InferenceSession(const std::string& model_path)
-                    : env_(ORT_LOGGING_LEVEL_WARNING,"AIInference")
+#include <iostream>
+#include <stdexcept>
+
+
+InferenceSession::InferenceSession(
+    const std::string& model_path,
+    const std::string& provider
+)
+    : env_(
+        ORT_LOGGING_LEVEL_WARNING,
+        "AIInference"
+    )
 {
+    // --------------------------------------------------
+    // Graph optimization
+    // --------------------------------------------------
+
     session_options_.SetGraphOptimizationLevel(
         GraphOptimizationLevel::ORT_ENABLE_ALL
     );
 
-    session_ = Ort::Session(env_, model_path.c_str(), session_options_);
+    // --------------------------------------------------
+    // Execution provider
+    // --------------------------------------------------
 
-    std::cout<< "ONNX Runtime session created\n";
+    if (provider == "cpu")
+    {
+        std::cout
+            << "Execution Provider: CPU\n";
+    }
+    else if (provider == "cuda")
+    {
+        std::cout
+            << "Execution Provider: CUDA\n";
+
+        OrtCUDAProviderOptions cuda_options{};
+
+        session_options_.AppendExecutionProvider_CUDA(
+            cuda_options
+        );
+    }
+    else
+    {
+        throw std::runtime_error(
+            "Unsupported execution provider: "
+            + provider
+            + ". Expected 'cpu' or 'cuda'."
+        );
+    }
+
+    // --------------------------------------------------
+    // Create ONNX Runtime session
+    // --------------------------------------------------
+
+    session_ = Ort::Session(
+        env_,
+        model_path.c_str(),
+        session_options_
+    );
+
+    std::cout
+        << "ONNX Runtime session created\n";
 }
+
 
 void InferenceSession::print_model_info()
 {
     Ort::AllocatorWithDefaultOptions allocator;
 
-    const size_t input_count = session_.GetInputCount();
+    const size_t input_count =
+        session_.GetInputCount();
 
-    std::cout<< "Inputs: "<< input_count<< '\n';
+    std::cout
+        << "Inputs: "
+        << input_count
+        << '\n';
 
-    for (size_t i = 0; i < input_count;++i)
+    for (size_t i = 0; i < input_count; ++i)
     {
-        auto name = session_.GetInputNameAllocated(i, allocator);
-        auto type_info = session_.GetInputTypeInfo(i);
-        auto tensor_info =type_info.GetTensorTypeAndShapeInfo();
-        auto shape = tensor_info.GetShape();
+        auto name =
+            session_.GetInputNameAllocated(
+                i,
+                allocator
+            );
 
-        std::cout<< "Input "<< i<< '\n';
-        std::cout<< "  Name: "<< name.get()<< '\n';
-        std::cout<< "  Shape: ";
+        auto type_info =
+            session_.GetInputTypeInfo(i);
+
+        auto tensor_info =
+            type_info.GetTensorTypeAndShapeInfo();
+
+        auto shape =
+            tensor_info.GetShape();
+
+        std::cout
+            << "Input "
+            << i
+            << '\n';
+
+        std::cout
+            << "  Name: "
+            << name.get()
+            << '\n';
+
+        std::cout
+            << "  Shape: ";
 
         for (auto dim : shape)
         {
-            std::cout<< dim<< ' ';
+            std::cout
+                << dim
+                << ' ';
         }
+
         std::cout << '\n';
     }
 
-    const size_t output_count = session_.GetOutputCount();
+    const size_t output_count =
+        session_.GetOutputCount();
 
-    std::cout<< "Outputs: "<< output_count<< '\n';
+    std::cout
+        << "Outputs: "
+        << output_count
+        << '\n';
 
     for (size_t i = 0; i < output_count; ++i)
     {
-        auto name = session_.GetOutputNameAllocated(i, allocator);
+        auto name =
+            session_.GetOutputNameAllocated(
+                i,
+                allocator
+            );
 
-        auto type_info = session_.GetOutputTypeInfo(i);
-        auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
-        auto shape = tensor_info.GetShape();
+        auto type_info =
+            session_.GetOutputTypeInfo(i);
 
-        std::cout<< "Output "<< i<< '\n';
-        std::cout<< "  Name: "<< name.get()<< '\n';
-        std::cout<< "  Shape: ";
+        auto tensor_info =
+            type_info.GetTensorTypeAndShapeInfo();
+
+        auto shape =
+            tensor_info.GetShape();
+
+        std::cout
+            << "Output "
+            << i
+            << '\n';
+
+        std::cout
+            << "  Name: "
+            << name.get()
+            << '\n';
+
+        std::cout
+            << "  Shape: ";
 
         for (auto dim : shape)
         {
-            std::cout<< dim<< ' ';
+            std::cout
+                << dim
+                << ' ';
         }
+
         std::cout << '\n';
     }
 }
 
-std::vector<float> InferenceSession::run(const std::vector<float>& input,
-    const std::vector<int64_t>& input_shape, std::vector<int64_t>& output_shape)
+
+std::vector<float> InferenceSession::run(
+    const std::vector<float>& input,
+    const std::vector<int64_t>& input_shape,
+    std::vector<int64_t>& output_shape
+)
 {
     Ort::AllocatorWithDefaultOptions allocator;
 
-    auto input_name = session_.GetInputNameAllocated(0, allocator);
-    auto output_name = session_.GetOutputNameAllocated(0, allocator);
+    auto input_name =
+        session_.GetInputNameAllocated(
+            0,
+            allocator
+        );
 
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    auto output_name =
+        session_.GetOutputNameAllocated(
+            0,
+            allocator
+        );
 
-    Ort::Value input_tensor = 
-            Ort::Value::CreateTensor<float>(memory_info, const_cast<float*>(input.data()),
-                                            input.size(),input_shape.data(),input_shape.size());
+    // --------------------------------------------------
+    // Input tensor
+    // --------------------------------------------------
 
-    const char* input_names[] = {input_name.get()};
-    const char* output_names[] = {output_name.get()};
+    Ort::MemoryInfo memory_info =
+        Ort::MemoryInfo::CreateCpu(
+            OrtArenaAllocator,
+            OrtMemTypeDefault
+        );
 
-    auto outputs = session_.Run(Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 1);
-    auto output_info = outputs[0].GetTensorTypeAndShapeInfo();
-    output_shape = output_info.GetShape();
-    const float* output_data = outputs[0].GetTensorData<float>();
-    const size_t output_size = output_info.GetElementCount();
+    Ort::Value input_tensor =
+        Ort::Value::CreateTensor<float>(
+            memory_info,
+            const_cast<float*>(
+                input.data()
+            ),
+            input.size(),
+            input_shape.data(),
+            input_shape.size()
+        );
 
-    return std::vector<float>(output_data, output_data + output_size);
+    const char* input_names[] = {
+        input_name.get()
+    };
+
+    const char* output_names[] = {
+        output_name.get()
+    };
+
+    // --------------------------------------------------
+    // Inference
+    // --------------------------------------------------
+
+    auto outputs =
+        session_.Run(
+            Ort::RunOptions{nullptr},
+            input_names,
+            &input_tensor,
+            1,
+            output_names,
+            1
+        );
+
+    // --------------------------------------------------
+    // Output
+    // --------------------------------------------------
+
+    auto output_info =
+        outputs[0]
+            .GetTensorTypeAndShapeInfo();
+
+    output_shape =
+        output_info.GetShape();
+
+    const float* output_data =
+        outputs[0].GetTensorData<float>();
+
+    const size_t output_size =
+        output_info.GetElementCount();
+
+    return std::vector<float>(
+        output_data,
+        output_data + output_size
+    );
 }
